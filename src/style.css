@@ -1,0 +1,22 @@
+@import "tailwindcss";
+
+:root {
+  --board-color: #f3c27d;
+}
+
+body {
+  background-color: #1a1a1a;
+  color: #ffffff;
+  margin: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  font-family: 'Outfit', sans-serif;
+}
+
+#app {
+  width: 100%;
+  max-width: 1200px;
+  padding: 2rem;
+}
