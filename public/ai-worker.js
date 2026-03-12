@@ -3,7 +3,7 @@
  */
 
 self.exports = {};
-importScripts('/gnugo.js');
+importScripts('./gnugo.js');
 
 let moduleInstance = null;
 let isReady = false;
@@ -56,7 +56,7 @@ function buildSgf() {
 
 async function init() {
     try {
-        const wasmBinary = await fetch('/gnugo.wasm').then(res => res.arrayBuffer());
+        const wasmBinary = await fetch('./gnugo.wasm').then(res => res.arrayBuffer());
 
         moduleInstance = {
             wasmBinary,

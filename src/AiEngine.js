@@ -16,7 +16,7 @@ class AiEngine {
         if (this._initPromise) return this._initPromise;
         this._initPromise = new Promise((resolve, reject) => {
             // Loading directly from public/ as a standard worker
-            this.worker = new Worker('/ai-worker.js');
+            this.worker = new Worker('./ai-worker.js');
             this.worker.onmessage = (e) => {
                 const { type, text, error, id, data } = e.data;
                 if (type === 'READY') { this.isReady = true; resolve(); }
