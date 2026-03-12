@@ -91,33 +91,36 @@ body {
 
 .main-content {
     flex: 1;
-    display: grid;
-    grid-template-columns: 1fr 380px;
+    display: flex;
+    flex-direction: row;
     gap: 20px;
     padding: 20px;
     max-width: 100%;
     margin: 0;
     width: 100%;
     overflow: hidden;
+    min-height: 0;
 }
 
 .board-column {
+    flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 100%;
     min-height: 0;
+    min-width: 0;
 }
 
 .board-wrapper {
     background: linear-gradient(145deg, rgba(30, 41, 59, 0.4), rgba(15, 23, 42, 0.6));
-    padding: clamp(10px, 2vh, 40px);
+    padding: clamp(5px, 1.5vmin, 20px);
     border-radius: clamp(10px, 2vh, 30px);
     border: 1px solid rgba(255, 255, 255, 0.05);
     box-shadow: 
         0 30px 60px -12px rgba(0, 0, 0, 0.8),
         inset 0 0 20px rgba(255, 255, 255, 0.02);
     position: relative;
+    max-width: 100%;
     max-height: 100%;
     aspect-ratio: 1/1;
     display: flex;
@@ -126,6 +129,8 @@ body {
 }
 
 canvas {
+    width: auto;
+    height: auto;
     max-width: 100%;
     max-height: 100%;
     object-fit: contain;
@@ -136,12 +141,14 @@ canvas {
 }
 
 .sidebar-column {
+    width: 380px;
     display: flex;
     flex-direction: column;
     gap: 12px;
     height: 100%;
     overflow-y: auto;
     padding-right: 5px;
+    flex-shrink: 0;
 }
 
 /* Scrollbar for sidebar */
@@ -164,11 +171,11 @@ canvas {
 .speech-bubble {
     background: white;
     color: #1e293b;
-    padding: 15px;
+    padding: 12px;
     border-radius: 12px;
-    margin: 15px 15px 10px 15px;
+    margin: 12px 12px 8px 12px;
     position: relative;
-    font-size: 14px;
+    font-size: 13px;
     line-height: 1.4;
     font-weight: 500;
 }
@@ -189,52 +196,53 @@ canvas {
     flex-direction: column;
     align-items: center;
     background: linear-gradient(to bottom, transparent, rgba(234, 113, 46, 0.6));
-    padding: 10px;
+    padding: 8px;
 }
 
 .tutor-image {
     width: 100%;
-    max-height: 200px;
+    max-height: 150px;
     overflow: hidden;
     display: flex;
     justify-content: center;
 }
 
 .tutor-image img {
-    height: 180px;
+    height: 130px;
     object-fit: contain;
     filter: drop-shadow(0 0 20px rgba(234, 113, 46, 0.4));
 }
 
 .tutor-info {
     text-align: center;
-    margin-top: 10px;
+    margin-top: 8px;
 }
 
 .tutor-info h3 {
-    font-size: 22px;
+    font-size: 18px;
     font-weight: 600;
 }
 
 .tutor-info p {
-    font-size: 14px;
+    font-size: 12px;
     color: rgba(255, 255, 255, 0.8);
 }
 
 .status-card {
     background: rgba(0, 0, 0, 0.4);
-    padding: 25px;
-    border-radius: 20px;
+    padding: 15px;
+    border-radius: 15px;
     border: 1px solid var(--glass-border);
     font-family: 'Monaco', 'Consolas', monospace;
-    font-size: 13px;
-    line-height: 1.8;
+    font-size: 11px;
+    line-height: 1.6;
 }
 
 .status-line {
     display: flex;
+    justify-content: space-between;
     gap: 8px;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
 }
 
 .status-card .label {
@@ -243,6 +251,8 @@ canvas {
 
 .status-card .value {
     color: #cbd5e1;
+    text-align: right;
+    word-break: break-all;
 }
 
 .status-running {
@@ -251,23 +261,25 @@ canvas {
 
 .analysis-percentage {
     color: #60a5fa;
-    margin-top: 4px;
+    margin-top: 2px;
+    text-align: right;
 }
 
 .controls-card {
     background: var(--card-bg);
-    padding: 20px;
-    border-radius: 20px;
+    padding: 15px;
+    border-radius: 15px;
     border: 1px solid var(--glass-border);
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 12px;
 }
 
 .turn-indicator {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    font-size: 14px;
 }
 
 .turn-indicator .value {
@@ -277,19 +289,23 @@ canvas {
 
 .action-buttons {
     display: flex;
-    gap: 10px;
+    gap: 8px;
+}
+
+.primary-btn, .secondary-btn {
+    flex: 1;
+    padding: 10px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
 }
 
 .primary-btn {
-    flex: 1;
     background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
     border: none;
     color: white;
-    padding: 12px;
-    border-radius: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
     box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 
@@ -306,6 +322,7 @@ canvas {
     border-radius: 6px;
     font-family: inherit;
     font-weight: 600;
+    font-size: 13px;
     outline: none;
 }
 
@@ -313,56 +330,126 @@ canvas {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    font-size: 14px;
 }
 
 .secondary-btn {
     background: rgba(239, 68, 68, 0.1);
     border: 1px solid rgba(239, 68, 68, 0.2);
     color: #f87171;
-    padding: 12px;
-    border-radius: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
 }
 
 .secondary-btn:hover {
     background: rgba(239, 68, 68, 0.2);
 }
 
-@media (max-width: 1000px) {
+/* Mobile Portrait (Max-width: 768px) */
+@media (max-width: 768px) {
+    body, #app { overflow: hidden; height: 100vh; }
+
+    .navbar {
+        height: 44px;
+        min-height: 44px;
+        padding: 0 12px;
+    }
+    .navbar h1 { font-size: 15px; }
+
     .main-content {
-        grid-template-columns: 1fr;
-        grid-template-rows: 1fr auto;
-        padding: 10px;
-        gap: 15px;
+        flex-direction: column;
+        padding: 8px;
+        gap: 6px;
+        height: calc(100% - 44px);
     }
-    .sidebar-column {
+
+    .board-column {
+        flex: 1 1 auto;
         height: auto;
-        overflow-y: visible;
-        flex-direction: row;
-        flex-wrap: wrap;
-        justify-content: center;
+        min-height: 0;
+        width: 100%;
+        margin-bottom: 0;
     }
-    .tutor-container, .status-card, .controls-card {
-        flex: 1;
-        min-width: 300px;
-        max-width: 400px;
+
+    .board-wrapper {
+        padding: 4px;
+        max-height: 100%;
+        max-width: 100%;
     }
-    .tutor-image img {
-        height: 120px;
+
+    .sidebar-column {
+        width: 100%;
+        height: auto;
+        flex: 0 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding-right: 0;
+        overflow-y: visible; /* Let sidebar be compressed but whole app not scroll if possible */
     }
-    .navbar h1 {
-        font-size: 16px;
+
+    .tutor-container { border-radius: 12px; }
+    .speech-bubble {
+        margin: 8px;
+        padding: 8px 10px;
+        font-size: 12px;
     }
+    .tutor-character-card { display: none; }
+
+    .status-card {
+        padding: 8px 12px;
+        border-radius: 12px;
+        font-size: 10px;
+        line-height: 1.4;
+    }
+    .status-line { margin-bottom: 0; }
+
+    .controls-card {
+        padding: 8px 12px;
+        border-radius: 12px;
+        gap: 8px;
+    }
+    .turn-indicator, .level-selector { font-size: 12px; }
+    .primary-btn, .secondary-btn { padding: 8px; font-size: 12px; border-radius: 8px; }
 }
 
-@media (max-height: 600px) {
-    .tutor-image img {
-        height: 100px;
+/* Mobile Landscape (Max-height: 500px) */
+@media (max-height: 500px) and (orientation: landscape) {
+    body, #app { overflow: hidden; height: 100vh; }
+    
+    .navbar {
+        height: 36px;
+        min-height: 36px;
+        padding: 0 8px;
     }
+    .navbar h1 { font-size: 13px; }
+    .logo { width: 18px; height: 18px; }
+
+    .main-content {
+        flex-direction: row;
+        padding: 4px 8px;
+        gap: 8px;
+        height: calc(100% - 36px);
+    }
+
+    .board-column { flex: 1; height: 100%; }
+    .board-wrapper { height: 100%; aspect-ratio: 1/1; padding: 4px; }
+
+    .sidebar-column {
+        width: 260px;
+        height: 100%;
+        flex-shrink: 0;
+        overflow-y: auto;
+        padding-right: 2px;
+        gap: 6px;
+    }
+
+    .tutor-image img { height: 50px; }
+    .tutor-info h3 { font-size: 16px; }
     .speech-bubble {
-        padding: 10px;
-        margin: 10px;
+        padding: 6px 10px;
+        font-size: 11px;
+        margin: 4px 4px 2px 4px;
     }
-}
+
+    .status-card { padding: 10px; border-radius: 12px; font-size: 10px; }
+    .controls-card { padding: 10px; border-radius: 12px; gap: 6px; }
+}
