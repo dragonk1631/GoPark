@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Go Capture Test</title>
+</head>
+<body>
+    <h1>Go Capture Rule Verification</h1>
+    <div id="status">Status: Initializing...</div>
+    <div id="result" style="white-space: pre; background: #f0f0f0; padding: 10px; margin-top: 10px;"></div>
+    <script type="module">
+        import { aiEngine } from './src/AiEngine.js';
+
+        async function runTest() {
+            const status = document.getElementById('status');
+            const result = document.getElementById('result');
+
+            try {
+                status.innerText = "Status: Initializing AI Engine...";
+                await aiEngine.init();
+                
+                await aiEngine.sendCommand('boardsize 19');
+                await aiEngine.sendCommand('clear_board');
+
+                status.innerText = "Status: Setting up capture scenario...";
+                // Place a white stone at D10
+                await aiEngine.playMove('white', 'D10');
+                
+                // Surround D10 with black stones
+                await aiEngine.playMove('black', 'D11'); // Top
+                await aiEngine.playMove('black', 'D9');  // Bottom
+                await aiEngine.playMove('black', 'C10'); // Left
+                
+                // Check if White D10 is still there
+                let whiteStones = await aiEngine.listStones('white');
+                result.innerText = "Before capture: White stones at " + JSON.stringify(whiteStones);
+
+                status.innerText = "Status: Playing the capturing move...";
+                await aiEngine.playMove('black', 'E10'); // Right - This SHOULD capture D10
+
+                whiteStones = await aiEngine.listStones('white');
+                result.innerText += "\nAfter capture: White stones at " + JSON.stringify(whiteStones);
+
+                if (whiteStones.length === 0 || !whiteStones.includes('D10')) {
+                    status.innerText = "Status: TEST SUCCESS - Stone captured!";
+                    status.style.color = "green";
+                } else {
+                    status.innerText = "Status: TEST FAILED - Stone still present!";
+                    status.style.color = "red";
+                }
+            } catch (err) {
+                status.innerText = "Status: ERROR";
+                status.style.color = "red";
+                result.innerText = err.stack;
+            }
+        }
+
+        runTest();
+    </script>
+</body>
+</html>

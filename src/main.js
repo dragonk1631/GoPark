@@ -288,9 +288,10 @@ class GoGame {
         this.isAiThinking = false; return;
       }
 
+      await this.syncBoard(); // Update state after capture
       this.playStoneSound();
+      // No need to manually push animation if we syncboard, but animation looks good
       this.animations.push({ x, y, color: 1, startTime: Date.now() });
-      this.board[y][x] = 1;
       this.lastMove = { x, y };
       this.turn = 2;
       this.updateUI();
@@ -307,7 +308,7 @@ class GoGame {
       if (gtpMove === 'PASS') {
         this.setTutorMessage("제가 이번 차례는 패스하겠습니다.");
       } else {
-        await this.syncBoard();
+        await this.syncBoard(); // Update captured stones
         const pos = this.fromGtp(gtpMove);
         if (pos) {
             this.playStoneSound();

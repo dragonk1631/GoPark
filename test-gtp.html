@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>GTP Command Test</title>
+</head>
+<body>
+    <h1>AI GTP Command Test</h1>
+    <div id="status">Status: Initializing...</div>
+    <div id="result" style="white-space: pre; background: #f0f0f0; padding: 10px; margin-top: 10px; border: 1px solid #ccc; min-height: 200px;"></div>
+    
+    <h3>Execute GTP Command on WASM Engine</h3>
+    <input type="text" id="gtp-cmd" value="help" style="width: 300px;">
+    <button id="exec-btn">Execute</button>
+    <button id="mode-toggle">Current Mode: 1 (SGF)</button>
+
+    <script type="module">
+        import { aiEngine } from './src/AiEngine.js';
+
+        let currentMode = 1;
+        const status = document.getElementById('status');
+        const result = document.getElementById('result');
+        const cmdInput = document.getElementById('gtp-cmd');
+        const modeBtn = document.getElementById('mode-toggle');
+
+        modeBtn.onclick = () => {
+            currentMode = currentMode === 1 ? 0 : 1;
+            modeBtn.innerText = `Current Mode: ${currentMode} (${currentMode === 1 ? 'SGF' : 'GTP/Info'})`;
+        };
+
+        async function init() {
+            try {
+                status.innerText = "Status: Initializing AI Engine...";
+                await aiEngine.init();
+                status.innerText = "Status: AI Engine Ready.";
+            } catch (err) {
+                status.innerText = "Status: ERROR - " + err.message;
+            }
+        }
+
+        document.getElementById('exec-btn').onclick = async () => {
+            const cmd = cmdInput.value;
+            result.innerText += `\n> Sending command (Mode ${currentMode}): ${cmd}\n`;
+            
+            // We need to temporarily modify ai-worker.js to support mode selection
+            // For now, let's just see what happens if we send a command that's handled as 'SEND_GTP'
+            // Wait, our sendCommand currently only sends to 'SEND_GTP' which uses mode 1 in worker for some commands.
+            
+            // Let's call a specific test command we'll add to ai-worker.js
+            aiEngine.worker.postMessage({ cmd: 'TEST_MODE', mode: currentMode, payload: cmd });
+        };
+
+        // Listen for raw responses from worker for testing
+        window.addEventListener('message', (e) => {
+           // We'll hook this up in ai-worker.js
+        });
+
+        // To make it easy, we'll just listen to aiEngine's responses if possible
+        // But for TEST_MODE we need to modify ai-worker.js
+        
+        init();
+    </script>
+</body>
+</html>

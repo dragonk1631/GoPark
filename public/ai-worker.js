@@ -46,6 +46,72 @@ function idxToGtp(x, y, size) {
     return gtpX + gtpY;
 }
 
+/**
+ * Reconstruct grid from moveSequence and handle captures
+ */
+function updateGridFromSequence() {
+    grid = Array(boardSize).fill(0).map(() => Array(boardSize).fill(0));
+    for (const move of moveSequence) {
+        const idx = sgfToIdx(move.sgfCoord, boardSize);
+        if (!idx) continue; // PASS
+        
+        const colorNum = move.color === 'B' ? 1 : 2;
+        grid[idx.y][idx.x] = colorNum;
+        
+        // Handle captures
+        const opponentColor = colorNum === 1 ? 2 : 1;
+        const neighbors = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+        
+        for (const [dx, dy] of neighbors) {
+            const nx = idx.x + dx, ny = idx.y + dy;
+            if (nx >= 0 && nx < boardSize && ny >= 0 && ny < boardSize && grid[ny][nx] === opponentColor) {
+                const group = findGroup(nx, ny, opponentColor);
+                if (group.liberties === 0) {
+                    for (const s of group.stones) grid[s.y][s.x] = 0;
+                }
+            }
+        }
+    }
+}
+
+function findGroup(startX, startY, color) {
+    const stones = [];
+    const visited = new Set();
+    const stack = [{x: startX, y: startY}];
+    const liberties = new Set();
+
+    while (stack.length > 0) {
+        const {x, y} = stack.pop();
+        const key = `${x},${y}`;
+        if (visited.has(key)) continue;
+        visited.add(key);
+        stones.push({x, y});
+
+        const neighbors = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+        for (const [dx, dy] of neighbors) {
+            const nx = x + dx, ny = y + dy;
+            if (nx >= 0 && nx < boardSize && ny >= 0 && ny < boardSize) {
+                if (grid[ny][nx] === 0) {
+                    liberties.add(`${nx},${ny}`);
+                } else if (grid[ny][nx] === color) {
+                    stack.push({x: nx, y: ny});
+                }
+            }
+        }
+    }
+    return { stones, liberties: liberties.size };
+}
+
+function sgfToIdx(sgf, size) {
+    if (!sgf || sgf.length < 2) return null;
+    const x = sgf.charCodeAt(0) - 97;
+    const y = sgf.charCodeAt(1) - 97;
+    // SGF (0,0) is top-left. Our grid is y-up or y-down?
+    // In gtpToSgf: sgfY = String.fromCharCode(97 + (size - y - 1));
+    // So y in grid is (size - sgfY - 1).
+    return { x, y: size - y - 1 };
+}
+
 function buildSgf() {
     let sgf = `(;FF[4]GM[1]SZ[${boardSize}]`;
     for (const move of moveSequence) {
@@ -92,8 +158,12 @@ async function init() {
 }
 
 self.onmessage = async (e) => {
-    const { cmd, id, payload } = e.data;
+    const { cmd, id, payload, mode } = e.data;
     if (cmd === 'INIT') { await init(); }
+    else if (cmd === 'TEST_MODE') {
+        const res = moduleInstance.ccall('play', 'string', ['number', 'string'], [mode, payload]);
+        self.postMessage({ type: 'PRINT', text: `[MODE ${mode} RESP] ${res}` });
+    }
     else if (cmd === 'SEND_GTP') {
         if (!isReady) return;
         const parts = payload.trim().split(/\s+/);
@@ -114,10 +184,8 @@ self.onmessage = async (e) => {
             } else if (command === 'play') {
                 const colorChar = parts[1][0].toUpperCase();
                 const coord = parts[2];
-                const colorNum = colorChar === 'B' ? 1 : 2;
                 moveSequence.push({ color: colorChar, sgfCoord: gtpToSgf(coord, boardSize) });
-                const idx = gtpToIdx(coord);
-                if (idx) grid[idx.y][idx.x] = colorNum;
+                updateGridFromSequence();
             } else if (command === 'genmove' || command === 'tutor_analyze' || command === 'final_score') {
                 const currentSgf = buildSgf();
                 let modeNum = 1; // Default Play mode
@@ -174,8 +242,7 @@ self.onmessage = async (e) => {
                         
                         if (command === 'genmove') {
                             moveSequence.push({ color: moveColor, sgfCoord: moveSgf });
-                            const idx = gtpToIdx(moveGtp);
-                            if (idx) grid[idx.y][idx.x] = (moveColor === 'B' ? 1 : 2);
+                            updateGridFromSequence();
                             response = "= " + moveGtp + "\n\n";
                         } else {
                             // Tutor Hint logic: Find Top 3 moves
