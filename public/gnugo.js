@@ -5370,6 +5370,7 @@ var asmLibraryArg = { "abort": abort, "setTempRet0": setTempRet0, "getTempRet0":
 var asm =Module["asm"]// EMSCRIPTEN_END_ASM
 (asmGlobalArg, asmLibraryArg, buffer);
 
+/*
 var real____emscripten_environ_constructor = asm["___emscripten_environ_constructor"]; asm["___emscripten_environ_constructor"] = function() {
   assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
   assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
@@ -5467,7 +5468,7 @@ var real_stackAlloc = asm["stackAlloc"]; asm["stackAlloc"] = function() {
 };
 
 var real_stackRestore = asm["stackRestore"]; asm["stackRestore"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
+  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be ready (e.g. wait for main() to be called)');
   assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
   return real_stackRestore.apply(null, arguments);
 };
@@ -5477,6 +5478,7 @@ var real_stackSave = asm["stackSave"]; asm["stackSave"] = function() {
   assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
   return real_stackSave.apply(null, arguments);
 };
+*/
 var ___emscripten_environ_constructor = Module["___emscripten_environ_constructor"] = asm["___emscripten_environ_constructor"];
 var ___errno_location = Module["___errno_location"] = asm["___errno_location"];
 var __get_daylight = Module["__get_daylight"] = asm["__get_daylight"];

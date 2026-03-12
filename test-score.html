@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Go Scoring Test</title>
+</head>
+<body>
+    <h1>AI Scoring Internal Test</h1>
+    <div id="status">Status: Initializing...</div>
+    <div id="result" style="white-space: pre; background: #f0f0f0; padding: 10px; margin-top: 10px;"></div>
+    <script type="module">
+        import { aiEngine } from './src/AiEngine.js';
+
+        async function runTest() {
+            const status = document.getElementById('status');
+            const result = document.getElementById('result');
+
+            try {
+                status.innerText = "Status: Initializing AI Engine...";
+                await aiEngine.init();
+                status.innerText = "Status: AI Engine Ready. Setting up board...";
+
+                // Setup a simple board state
+                await aiEngine.setBoardSize(19);
+                // Lopsided board: Black has a solid 3x3 square at the top right
+                await aiEngine.playMove('black', 'Q16');
+                await aiEngine.playMove('black', 'R16');
+                await aiEngine.playMove('black', 'P16');
+                await aiEngine.playMove('black', 'Q15');
+                await aiEngine.playMove('black', 'R15');
+                await aiEngine.playMove('black', 'P15');
+                await aiEngine.playMove('black', 'Q17');
+                await aiEngine.playMove('black', 'R17');
+                await aiEngine.playMove('black', 'P17');
+                
+                // White has only one stone
+                await aiEngine.playMove('white', 'D4');
+                
+                // End game
+                await aiEngine.playMove('black', 'PASS');
+                await aiEngine.playMove('white', 'PASS');
+
+                status.innerText = "Status: Requesting Score...";
+                const score = await aiEngine.getScore();
+                
+                result.innerText = "Score Result: " + score;
+                console.log("Score Result:", score);
+
+                if (score && score !== "0.0 (Analysis Pending)") {
+                    status.innerText = "Status: TEST SUCCESS";
+                    status.style.color = "green";
+                } else {
+                    status.innerText = "Status: TEST FAILED (Inconclusive or 0.0)";
+                    status.style.color = "orange";
+                }
+            } catch (err) {
+                status.innerText = "Status: ERROR";
+                status.style.color = "red";
+                result.innerText = err.stack;
+                console.error(err);
+            }
+        }
+
+        runTest();
+    </script>
+</body>
+</html>

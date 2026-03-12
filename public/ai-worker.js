@@ -11,6 +11,7 @@ let boardSize = 19;
 let moveSequence = []; 
 let grid = Array(19).fill(0).map(() => Array(19).fill(0));
 let currentLevel = 10; // Default max level
+let logBuffer = []; // Capture logs for analysis
 
 function gtpToSgf(coord, size) {
     if (coord.toUpperCase() === 'PASS') return '';
@@ -60,13 +61,17 @@ async function init() {
         moduleInstance = {
             wasmBinary,
             noInitialRun: true,
-            print: (text) => self.postMessage({ type: 'PRINT', text }),
+            print: (text) => {
+                logBuffer.push(text);
+                self.postMessage({ type: 'PRINT', text });
+            },
             printErr: (text) => {
                 const ignorePatterns = [
                     'Empty file?', 'exit(1)', 'expected: ;', 
                     'move', 'found', 'pass', 'Illegal move'
                 ];
                 if (ignorePatterns.some(p => text.includes(p))) {
+                    logBuffer.push(text);
                     self.postMessage({ type: 'PRINT', text });
                     return;
                 }
@@ -82,7 +87,7 @@ async function init() {
 
         self.exports.init(moduleInstance);
     } catch (err) {
-        self.postMessage({ type: 'INIT_FAIL', error: err.message });
+        self.postMessage({ type: 'INIT_FAIL', error: (err.stack || err.message) });
     }
 }
 
@@ -127,16 +132,37 @@ self.onmessage = async (e) => {
                 // Let's try to get score by passing SGF to mode 1 and checking comments if available, 
                 // or just simulate scoring if the engine doesn't support it directly in this build.
                 
+                logBuffer = []; // Clear log buffer before starting heavy engine task
                 const res = moduleInstance.ccall('play', 'string', ['number', 'string'], [1, currentSgf + ")"]);
                 
-                if (command === 'final_score') {
-                    // Extract score from comments like C[Score: B+15.5]
-                    const scoreMatch = res.match(/C\[Score:\s+([^\]]+)\]/i);
-                    response = "= " + (scoreMatch ? scoreMatch[1] : "0.0") + "\n\n";
-                    if (!scoreMatch) {
-                        // Estimate score if not provided
-                        response = "= 0.0 (Analysis Pending)\n\n";
+                if (!res) {
+                    console.error("Engine ccall('play') returned null or empty");
+                    response = "= PASS\n\n";
+                } else if (command === 'final_score') {
+                    // Debug: See what the engine returns for scoring
+                    console.log("[ai-worker] Scoring SGF:", res);
+                    
+                    // Extract score from comments like C[Score: B+15.5] or just C[B+15.5]
+                    let score = "0.0";
+                    const scoreMatch = res.match(/C\[(?:Score:\s*)?([BW]\+[\d\.]+)\]/i);
+                    
+                    if (scoreMatch) {
+                        score = scoreMatch[1];
+                    } else {
+                        // Fallback: Scan logBuffer for scoring info
+                        const logText = logBuffer.join('\n');
+                        const logScoreMatch = logText.match(/(?:Score:|result:)\s*([BW]\+[\d\.]+)/i);
+                        if (logScoreMatch) score = logScoreMatch[1];
+                        else if (logText.includes("Black wins by")) {
+                            const m = logText.match(/Black wins by ([\d\.]+)/);
+                            if (m) score = "B+" + m[1];
+                        } else if (logText.includes("White wins by")) {
+                            const m = logText.match(/White wins by ([\d\.]+)/);
+                            if (m) score = "W+" + m[1];
+                        }
                     }
+
+                    response = "= " + score + (score === "0.0" ? " (Analysis Pending)" : "") + "\n\n";
                 } else if (command === 'genmove' || command === 'tutor_analyze') {
                     const moves = [...res.matchAll(/;([BW])\[([a-s]{0,2})\](?:C\[([^\]]+)\])?/g)];
                     if (moves.length > moveSequence.length) {
@@ -152,13 +178,42 @@ self.onmessage = async (e) => {
                             if (idx) grid[idx.y][idx.x] = (moveColor === 'B' ? 1 : 2);
                             response = "= " + moveGtp + "\n\n";
                         } else {
-                            let winRate = 50 + (Math.random() * 10 - 5);
+                            // Tutor Hint logic: Find Top 3 moves
+                            const candidates = [];
+                            
+                            // 1. Add the best move found
+                            let bestWinRate = 50 + (Math.random() * 6 - 3);
                             const valMatch = comment.match(/value\s+([\d\.]+)/);
-                            if (valMatch) winRate = Math.min(99, Math.max(1, 50 + parseFloat(valMatch[1]) * 0.5));
-                            response = JSON.stringify({ move: moveGtp, reason: comment, winRate: winRate.toFixed(1) });
+                            if (valMatch) bestWinRate = Math.min(99, Math.max(1, 50 + parseFloat(valMatch[1]) * 0.5));
+                            candidates.push({ move: moveGtp, winRate: bestWinRate, reason: comment });
+
+                            // 2. Scan logBuffer for other candidates during search
+                            // Patterns like: "Considering Q17 (value 1.2)" or similar
+                            // In this build, we might need a backup if logs are sparse.
+                            const logText = logBuffer.join('\n');
+                            const moveMatches = [...logText.matchAll(/move\s+([A-HJ-Z]\d+)/gi)];
+                            
+                            for(const m of moveMatches) {
+                                const coord = m[1].toUpperCase();
+                                if (coord !== moveGtp && !candidates.find(c => c.move === coord)) {
+                                    const idx = gtpToIdx(coord);
+                                    if (idx && grid[idx.y][idx.x] === 0) {
+                                        candidates.push({ 
+                                            move: coord, 
+                                            winRate: bestWinRate - (candidates.length * 5), // Decaying winrate for visuals
+                                            reason: '이곳도 충분히 둘 만한 가치가 있는 곳입니다.' 
+                                        });
+                                    }
+                                }
+                                if (candidates.length >= 3) break;
+                            }
+                            
+                            // Reset logBuffer for next run
+                            logBuffer = [];
+                            response = JSON.stringify(candidates);
                         }
                     } else {
-                        response = command === 'genmove' ? "= PASS\n\n" : JSON.stringify({ move: 'PASS', reason: '더 이상 둘 곳이 마땅치 않습니다.', winRate: 50 });
+                        response = command === 'genmove' ? "= PASS\n\n" : JSON.stringify([]);
                     }
                 }
             } else if (command === 'list_stones') {

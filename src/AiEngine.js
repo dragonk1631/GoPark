@@ -15,7 +15,7 @@ class AiEngine {
     async init() {
         if (this._initPromise) return this._initPromise;
         this._initPromise = new Promise((resolve, reject) => {
-            // Using absolute path relative to root for Vite compatibility
+            // Loading directly from public/ as a standard worker
             this.worker = new Worker('/ai-worker.js');
             this.worker.onmessage = (e) => {
                 const { type, text, error, id, data } = e.data;
@@ -45,7 +45,7 @@ class AiEngine {
                     this._pendingCommands.delete(id);
                     resolve('');
                 }
-            }, 5000);
+            }, 30000); // Increased to 30 seconds for complex WASM processing
 
             this._pendingCommands.set(id, { resolve: (res) => {
                 clearTimeout(timeout);
@@ -65,12 +65,15 @@ class AiEngine {
             if (move && move.toLowerCase() !== 'ok') return move.toUpperCase();
         }
         
-        // 2. Try to parse from stdout/stderr (e.g. "white (O) move Q16")
-        const allText = [...this._lastStdout, ...this._lastStderr].join(' ');
-        const moveMatch = allText.match(/(?:move\s+)([A-T][0-9]{1,2})/i);
-        if (moveMatch) {
-            console.log('[AiEngine] Extracted move from logs:', moveMatch[1]);
-            return moveMatch[1].toUpperCase();
+        // 2. Try to parse from stdout/stderr, looking for the LAST occurrence
+        const allText = [...this._lastStdout, ...this._lastStderr].join('\n');
+        // Look for "white (O) move F13" or "move F13"
+        const matches = [...allText.matchAll(/(?:move\s+)([A-T][0-9]{1,2})/gi)];
+        if (matches.length > 0) {
+            // Check if any match is NOT in history (hard to do here, but let's take the very last one)
+            const move = matches[matches.length - 1][1];
+            console.log('[AiEngine] Extracted last move from logs:', move);
+            return move.toUpperCase();
         }
 
         if (res && res.includes('?')) {

@@ -20,6 +20,8 @@ class GoGame {
     this.animations = []; // [{x, y, color, startTime, type}]
     this.pulseAlpha = 0;
     this.pulseDir = 1;
+    this.hoverPos = null; // {x, y} for ghost stone
+    this.hints = []; // [{move, x, y, winRate, reason}]
 
     // Audio Context
     this.audioCtx = null;
@@ -31,6 +33,8 @@ class GoGame {
   async init() {
     this.render();
     this.canvas.addEventListener('mousedown', (e) => this.handleCanvasClick(e));
+    this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+    this.canvas.addEventListener('mouseleave', () => { this.hoverPos = null; });
     document.getElementById('reset-btn').addEventListener('click', () => this.reset());
     document.getElementById('score-btn').addEventListener('click', () => this.calculateScore());
     document.getElementById('level-select').addEventListener('change', (e) => this.changeLevel(e.target.value));
@@ -115,7 +119,11 @@ class GoGame {
 
   render() {
     this.drawBoard();
+    this.drawHints();
     this.drawStones();
+    if (this.hoverPos && !this.isAiThinking && this.turn === 1) {
+      this.drawSingleStone(this.hoverPos.x, this.hoverPos.y, this.turn, 1, 0.4);
+    }
     if (this.lastMove) this.drawLastMoveEffect();
     this.drawAnimations();
   }
@@ -215,12 +223,56 @@ class GoGame {
     });
   }
 
+  drawHints() {
+    const { ctx, padding, cellSize, hints, pulseAlpha } = this;
+    if (!hints || hints.length === 0 || this.turn !== 1) return;
+
+    hints.forEach((hint, index) => {
+        const x = padding + hint.x * cellSize;
+        const y = padding + hint.y * cellSize;
+        const baseRadius = cellSize * 0.35;
+        // Best move (index 0) is biggest
+        const scale = 1.0 - (index * 0.2); 
+        const radius = baseRadius * scale;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(34, 211, 238, ${0.4 + pulseAlpha})`;
+        ctx.lineWidth = 4 - index;
+        ctx.setLineDash([5, 3]);
+        ctx.stroke();
+
+        // Label for rank
+        ctx.fillStyle = `rgba(34, 211, 238, 0.9)`;
+        ctx.font = `bold ${12 - index}px Outfit`;
+        ctx.textAlign = 'center';
+        ctx.fillText(`${index + 1}`, x, y + 4);
+        ctx.restore();
+    });
+  }
+
+  handleMouseMove(e) {
+    const rect = this.canvas.getBoundingClientRect();
+    const x = Math.round(((e.clientX - rect.left) * (this.canvas.width / rect.width) - this.padding) / this.cellSize);
+    const y = Math.round(((e.clientY - rect.top) * (this.canvas.height / rect.height) - this.padding) / this.cellSize);
+    
+    if (x >= 0 && x < this.size && y >= 0 && y < this.size && this.board[y][x] === 0) {
+      this.hoverPos = { x, y };
+    } else {
+      this.hoverPos = null;
+    }
+  }
+
   async handleCanvasClick(e) {
     if (this.turn !== 1 || this.isAiThinking) return;
     const rect = this.canvas.getBoundingClientRect();
     const x = Math.round(((e.clientX - rect.left) * (this.canvas.width / rect.width) - this.padding) / this.cellSize);
     const y = Math.round(((e.clientY - rect.top) * (this.canvas.height / rect.height) - this.padding) / this.cellSize);
-    if (x >= 0 && x < this.size && y >= 0 && y < this.size) await this.playerMove(x, y);
+    if (x >= 0 && x < this.size && y >= 0 && y < this.size) {
+      this.hints = []; // Clear hints before player move
+      await this.playerMove(x, y);
+    }
   }
 
   async playerMove(x, y) {
@@ -271,13 +323,21 @@ class GoGame {
   async requestTutorHint() {
     if (this.turn !== 1) return;
     try {
-        const hint = await aiEngine.getTutorHint('black');
-        if (hint && hint.move !== 'PASS') {
-            this.analysis = { move: hint.move, winRate: hint.winRate, reason: hint.reason };
-            this.setTutorMessage(`${hint.move} 자리가 급소 같네요!<br>그곳에 두면 유리해질 거예요.`);
-            this.updateStatus('Analysis', hint.reason);
+        const hintList = await aiEngine.getTutorHint('black');
+        if (hintList && hintList.length > 0) {
+            this.hints = hintList.map(h => {
+                const pos = this.fromGtp(h.move);
+                return { ...h, x: pos ? pos.x : -1, y: pos ? pos.y : -1 };
+            }).filter(h => h.x !== -1);
+            
+            const best = this.hints[0];
+            this.analysis = { move: best.move, winRate: best.winRate, reason: best.reason };
+            this.setTutorMessage(`${best.move} 자리가 급소 같네요!<br>그 외에도 추천하는 곳들을 그려드렸어요.`);
+            this.updateStatus('Analysis', best.reason);
+        } else {
+            this.hints = [];
         }
-    } catch (e) {}
+    } catch (e) { this.hints = []; }
   }
 
   async syncBoard() {

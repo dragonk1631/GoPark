@@ -5,17 +5,29 @@
 
 ## 2. 주요 문제점 및 원인 분석
 
-### 2.1. "Empty file?" 오류 및 엔진 중단
-- **현상**: 엔진 실행 시 `[GNU Go Err] Empty file?` 메시지와 함께 `exit(1)`이 호출되어 Web Worker가 중단됨.
-- **원인**: 
-    - 엔진이 내부적으로 패턴 데이터(`patterns.dat`)를 로드하려고 시도하지만, WASM 가상 파일 시스템 내에 해당 파일이 존재하지 않거나 크기가 0임.
-    - 현재 배포된 WASM 빌드가 표준 GTP(stdin/stdout) 방식이 아닌 특정 API(`play` export)를 사용하도록 설계됨.
+### Error: "Empty file?" on FS.writeFile
+- **Cause**: Emscripten might have issues writing to the virtual root if the WASM build has a different FS setup.
+- **Investigation**:
+    - Checked if `/` is writable.
+    - Attempted to use a subdirectory like `/tmp/`.
+    - Investigated if `patterns.dat` is actually needed (GNU Go often works with default patterns).
 
-### 2.2. 보드 동기화 실패 (돌 사라짐 현상)
-- **현상**: 사용자가 돌을 두거나 AI가 응답한 후, 기존에 판 위에 있던 돌들이 모두 사라짐.
-- **원인**: 
-    - 엔진이 "Stateless"(상태 없음) 방식으로 동작하여, 매번 전체 기보(SGF)를 새로 전달받아야 함.
-    - 프론트엔드의 `syncBoard()` 요청 시 워커가 돌의 위치 정보를 올바르게 반환하지 못함.
+### Error: "Read-only property ___emscripten_environ_constructor"
+- **Cause**: Emscripten's runtime attempting to overwrite global properties that are marked as read-only by the browser (often occurs with ESM modules or certain Vite configurations).
+- **Resolution**: Commented out the assertion wrappers in `gnugo.js` and reverted to traditional worker loading.
+
+## Current Fixes Applied
+- **gnugo.js**: Patched assertion wrappers (lines 5373-5481).
+- **AiEngine.js**: 
+    - Reverted to standard `new Worker('/ai-worker.js')`.
+    - Increased move generation timeout to 30 seconds.
+- **ai-worker.js**:
+    - Reverted to `importScripts('/gnugo.js')`.
+    - Added comprehensive log clearing and error handling.
+
+## Future Recommendations
+- Upgrade the GNU Go Emscripten build to a more modern version that supports ESM natively.
+- Optimize the SGF bridge to avoid replaying the entire history every move.
 
 ---
 
