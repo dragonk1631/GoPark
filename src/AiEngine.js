@@ -15,6 +15,7 @@ class AiEngine {
     async init() {
         if (this._initPromise) return this._initPromise;
         this._initPromise = new Promise((resolve, reject) => {
+            // Using absolute path relative to root for Vite compatibility
             this.worker = new Worker('/ai-worker.js');
             this.worker.onmessage = (e) => {
                 const { type, text, error, id, data } = e.data;
@@ -105,6 +106,15 @@ class AiEngine {
         } catch (e) {
             return null;
         }
+    }
+
+    async getScore() {
+        return await this.sendCommand('final_score');
+    }
+
+    async setLevel(level) {
+        // level should be 0-10
+        return await this.sendCommand(`level ${level}`);
     }
 
     async clearBoard() {

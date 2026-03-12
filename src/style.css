@@ -275,6 +275,46 @@ canvas {
     color: var(--accent-cyan);
 }
 
+.action-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.primary-btn {
+    flex: 1;
+    background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+    border: none;
+    color: white;
+    padding: 12px;
+    border-radius: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.primary-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+}
+
+.value-select {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+    color: var(--accent-cyan);
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 600;
+    outline: none;
+}
+
+.level-selector {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
 .secondary-btn {
     background: rgba(239, 68, 68, 0.1);
     border: 1px solid rgba(239, 68, 68, 0.2);

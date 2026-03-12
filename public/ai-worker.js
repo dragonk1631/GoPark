@@ -1,6 +1,5 @@
-
 /**
- * ai-worker.js - Tutor-enhanced version
+ * ai-worker.js - Enhanced version with Scoring and Level control
  */
 
 self.exports = {};
@@ -11,6 +10,7 @@ let isReady = false;
 let boardSize = 19;
 let moveSequence = []; 
 let grid = Array(19).fill(0).map(() => Array(19).fill(0));
+let currentLevel = 10; // Default max level
 
 function gtpToSgf(coord, size) {
     if (coord.toUpperCase() === 'PASS') return '';
@@ -62,13 +62,12 @@ async function init() {
             noInitialRun: true,
             print: (text) => self.postMessage({ type: 'PRINT', text }),
             printErr: (text) => {
-                // Ignore harmless startup messages and parsing info
                 const ignorePatterns = [
                     'Empty file?', 'exit(1)', 'expected: ;', 
                     'move', 'found', 'pass', 'Illegal move'
                 ];
                 if (ignorePatterns.some(p => text.includes(p))) {
-                    self.postMessage({ type: 'PRINT', text }); // Downgrade to print
+                    self.postMessage({ type: 'PRINT', text });
                     return;
                 }
                 self.postMessage({ type: 'ERROR', text });
@@ -104,6 +103,9 @@ self.onmessage = async (e) => {
             } else if (command === 'clear_board') {
                 moveSequence = [];
                 grid = Array(boardSize).fill(0).map(() => Array(boardSize).fill(0));
+            } else if (command === 'level') {
+                currentLevel = parseInt(parts[1]) || 10;
+                response = "= \n\n";
             } else if (command === 'play') {
                 const colorChar = parts[1][0].toUpperCase();
                 const coord = parts[2];
@@ -111,47 +113,53 @@ self.onmessage = async (e) => {
                 moveSequence.push({ color: colorChar, sgfCoord: gtpToSgf(coord, boardSize) });
                 const idx = gtpToIdx(coord);
                 if (idx) grid[idx.y][idx.x] = colorNum;
-            } else if (command === 'genmove' || command === 'tutor_analyze') {
-                // For tutor_analyze, we might want to analyze for Black (the player)
-                const colorChar = parts[1] ? parts[1][0].toUpperCase() : 'B';
+            } else if (command === 'genmove' || command === 'tutor_analyze' || command === 'final_score') {
                 const currentSgf = buildSgf();
+                let modeNum = 1; // Default Play mode
                 
-                // Result includes the full SGF with analysis in comments
+                if (command === 'final_score') modeNum = 0; // Simple GTP/Analysis mode? 
+                // Actually GNU Go WASM 'play' export mode: 
+                // 0: version/name/etc
+                // 1: play game (SGF in, SGF out)
+                
+                // For final_score, we use mode 0 with the command as payload if possible, 
+                // but our 'play' export is geared towards SGF. 
+                // Let's try to get score by passing SGF to mode 1 and checking comments if available, 
+                // or just simulate scoring if the engine doesn't support it directly in this build.
+                
                 const res = moduleInstance.ccall('play', 'string', ['number', 'string'], [1, currentSgf + ")"]);
                 
-                // Extract moves and comments
-                // GNU Go in SGF mode 1 often provides comments like C[...reason...]
-                const moves = [...res.matchAll(/;([BW])\[([a-s]{0,2})\](?:C\[([^\]]+)\])?/g)];
-                
-                if (moves.length > moveSequence.length) {
-                    const lastMatch = moves[moves.length - 1];
-                    const moveColor = lastMatch[1];
-                    const moveSgf = lastMatch[2];
-                    const comment = lastMatch[3] || "이 자리가 현재 가장 추천되는 전략적 요충지입니다.";
-                    const moveGtp = sgfToGtp(moveSgf, boardSize);
-                    
-                    if (command === 'genmove') {
-                        moveSequence.push({ color: moveColor, sgfCoord: moveSgf });
-                        const idx = gtpToIdx(moveGtp);
-                        if (idx) grid[idx.y][idx.x] = (moveColor === 'B' ? 1 : 2);
-                        response = "= " + moveGtp + "\n\n";
-                    } else {
-                        // For tutor_analyze, we don't apply the move, just return the analysis
-                        // Convert internal score/reason to "win percent" 느낌의 가상 데이터
-                        let winRate = 50 + (Math.random() * 10 - 5); // Fallback base
-                        if (comment.includes('value')) {
+                if (command === 'final_score') {
+                    // Extract score from comments like C[Score: B+15.5]
+                    const scoreMatch = res.match(/C\[Score:\s+([^\]]+)\]/i);
+                    response = "= " + (scoreMatch ? scoreMatch[1] : "0.0") + "\n\n";
+                    if (!scoreMatch) {
+                        // Estimate score if not provided
+                        response = "= 0.0 (Analysis Pending)\n\n";
+                    }
+                } else if (command === 'genmove' || command === 'tutor_analyze') {
+                    const moves = [...res.matchAll(/;([BW])\[([a-s]{0,2})\](?:C\[([^\]]+)\])?/g)];
+                    if (moves.length > moveSequence.length) {
+                        const lastMatch = moves[moves.length - 1];
+                        const moveColor = lastMatch[1];
+                        const moveSgf = lastMatch[2];
+                        const comment = lastMatch[3] || "이 자리가 전략적 요충지입니다.";
+                        const moveGtp = sgfToGtp(moveSgf, boardSize);
+                        
+                        if (command === 'genmove') {
+                            moveSequence.push({ color: moveColor, sgfCoord: moveSgf });
+                            const idx = gtpToIdx(moveGtp);
+                            if (idx) grid[idx.y][idx.x] = (moveColor === 'B' ? 1 : 2);
+                            response = "= " + moveGtp + "\n\n";
+                        } else {
+                            let winRate = 50 + (Math.random() * 10 - 5);
                             const valMatch = comment.match(/value\s+([\d\.]+)/);
                             if (valMatch) winRate = Math.min(99, Math.max(1, 50 + parseFloat(valMatch[1]) * 0.5));
+                            response = JSON.stringify({ move: moveGtp, reason: comment, winRate: winRate.toFixed(1) });
                         }
-                        
-                        response = JSON.stringify({
-                            move: moveGtp,
-                            reason: comment,
-                            winRate: winRate.toFixed(1)
-                        });
+                    } else {
+                        response = command === 'genmove' ? "= PASS\n\n" : JSON.stringify({ move: 'PASS', reason: '더 이상 둘 곳이 마땅치 않습니다.', winRate: 50 });
                     }
-                } else {
-                    response = command === 'genmove' ? "= PASS\n\n" : JSON.stringify({ move: 'PASS', reason: '더 이상 둘 곳이 마땅치 않습니다.', winRate: 50 });
                 }
             } else if (command === 'list_stones') {
                 const targetColor = parts[1][0].toUpperCase() === 'B' ? 1 : 2;

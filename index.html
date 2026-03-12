@@ -77,7 +77,19 @@
                 <span class="label">현재 차례:</span>
                 <span id="current-turn" class="value">흑번 (나)</span>
              </div>
-             <button id="reset-btn" class="secondary-btn">대국 초기화</button>
+             <div class="level-selector">
+                <span class="label">AI 난이도:</span>
+                <select id="level-select" class="value-select">
+                    <option value="1">1단계 (입문)</option>
+                    <option value="3">3단계 (초급)</option>
+                    <option value="6">6단계 (중급)</option>
+                    <option value="10" selected>10단계 (고급)</option>
+                </select>
+             </div>
+             <div class="action-buttons">
+                <button id="score-btn" class="primary-btn">대국 종료/계가</button>
+                <button id="reset-btn" class="secondary-btn">대국 초기화</button>
+             </div>
           </div>
         </div>
       </main>
